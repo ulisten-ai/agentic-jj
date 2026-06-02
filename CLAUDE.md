@@ -4,12 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A Claude Code **plugin** that teaches Claude how to use jujutsu (jj) effectively. It provides:
-- **Rules** (always-loaded context) for core jj workflow and non-interactive command patterns
-- **Skills** (on-demand) for complex operations: splitting, history rewriting, recovery
-- **Hooks** for safety: blocking git commands in jj repos, blocking interactive jj commands, auto-snapshotting on session stop
+A Claude Code **plugin** that teaches Claude how to use jujutsu (jj) effectively.
+Published as `agentic-jj` at github.com/ulisten-ai/agentic-jj (MIT).
 
-## Target Structure
+## Current State
+
+**v0 (shipped):** rules only. The plugin provides:
+- `.claude-plugin/{plugin,marketplace}.json` — installable via `/plugin marketplace add ulisten-ai/agentic-jj`
+- `rules/jj-workflow.md` (~265 lines) — always-on jj guidance
+- `scripts/sync-rules.sh` + `hooks/hooks.json` — SessionStart hook that syncs rules to
+  `<project>/.claude/rules/ulisten/agentic-jj/jj-workflow.local.md` and bootstraps `*.local.md`
+  into the project's `.gitignore`
+- `README.md`, `LICENSE` (MIT)
+
+**Planned (not yet built):**
+- **Skills** (on-demand) for complex operations: `jj-split`, `jj-rewrite-history`, `jj-recovery`
+- **Safety hooks**: block-git (in jj repos), check-interactive (intercept editor-opening jj commands),
+  auto-snapshot (preserve work on session stop), inject-state (show `jj status` at session start)
+- **Configuration via `userConfig`** for toggling safety hooks
+
+## Target Structure (full spec — see SPEC.md)
 
 See `SPEC.md` for the full specification. Key directories:
 
@@ -34,32 +48,31 @@ All scripts must:
 3. PreToolUse scripts receive event JSON on stdin and must output `{"decision": "block"|"approve", "reason": "..."}` as JSON
 4. Use `${CLAUDE_PLUGIN_ROOT}` for plugin-relative paths, `${CLAUDE_PLUGIN_DATA}` for persistent data
 
-## Implementation Tasks
+## Pending Work
 
-### Ordered
+Each independently useful — pick any:
 
-Hooks first — enforce what we can mechanically, then add rules for what hooks can't cover.
+- **Skill: jj-split** — non-interactive splitting recipes (by file, restore-pivot for hunks)
+- **Skill: jj-rewrite-history** — partial squash, rebase, insert mid-chain
+- **Skill: jj-recovery** — op log, undo, restore, obslog recipes
+- **Hook: block-git** — `PreToolUse` matcher on `Bash(git *)` that blocks git commands when `jj root` succeeds
+- **Hook: check-interactive** — `PreToolUse` matcher on `Bash(jj *)` that blocks editor-opening forms (`jj describe` without `-m`, `jj split` without `-m + --`, etc.)
+- **Hook: auto-snapshot** — `Stop` hook that describes undescribed working copy as WIP
+- **Hook: inject-jj-state** — `SessionStart` extension to also output `jj status` + `jj log -r @`
+- **`userConfig`** — toggles for each hook (`auto_snapshot`, `block_git`, etc.)
+- **CHANGELOG**
 
-1. **Plugin manifest** — `plugin.json` with metadata and `userConfig` schema. After this the plugin is installable (though it does nothing yet).
-2. **Block git commands in jj repos** — `scripts/block-git.sh` and its entry in `hooks/hooks.json`. First working hook.
-3. **Block interactive jj commands** — `scripts/check-interactive.sh` and its hook entry. After this, Claude is prevented from running editor-opening jj commands (split, describe without -m, etc.).
-4. **Inject jj state on session start** — `scripts/inject-jj-state.sh` and its hook entry. Gives Claude repo context (status, log, whether `@` needs `jj new`) at conversation start.
-5. **Auto-snapshot on stop** — `scripts/auto-snapshot.sh` and its hook entry. Describes undescribed working copy as WIP when Claude stops, preventing silent work loss.
-6. **Always-on rules + sync** — `rules/jj-workflow.md`, `scripts/sync-rules.sh`, and its hook entry. Guidance for everything hooks can't enforce: workflow philosophy, revset reference, conflict handling, bookmark patterns. Written last so we know exactly what the hooks already cover and don't duplicate.
+## Hook Implementation Conventions (for the planned hooks above)
 
-### Unordered (each independently useful after the ordered tasks)
-
-- **Skill: jj-split** — `skills/jj-split/SKILL.md`. Non-interactive splitting recipes (by file, extract-out approach).
-- **Skill: jj-rewrite-history** — `skills/jj-rewrite-history/SKILL.md`. Partial squash, rebase, insert mid-chain.
-- **Skill: jj-recovery** — `skills/jj-recovery/SKILL.md`. Op log, undo, restore, obslog recipes.
-- **README + LICENSE + CHANGELOG** — Docs for distribution.
+1. Check if we're in a jj repo (`jj root`) — exit silently if not
+2. Read config env var (`CLAUDE_PLUGIN_OPTION_<NAME>`) — exit silently if disabled
+3. `PreToolUse` scripts receive event JSON on stdin and output `{"decision": "block"|"approve", "reason": "..."}` JSON
+4. Use `${CLAUDE_PLUGIN_ROOT}` for plugin-relative paths
 
 ## Testing
 
-No automated test framework. Testing is manual per `SPEC.md § Testing Plan`:
-- Verify rules load and Claude follows describe-first workflow
-- Verify skill auto-invocation for split/rebase/recovery tasks
-- Verify each hook fires correctly (block-git, check-interactive, auto-snapshot, inject-state)
-- Verify config toggles disable corresponding hooks
-- Verify graceful no-op in non-jj repos
-- Target jj 0.25+ (bookmark vs branch rename happened ~0.22)
+No automated framework. Verify manually after changes:
+- Install the plugin from local path (`/plugin marketplace add /Users/ahaan/dev/podwiz/jj-claude`) into a test repo; start a fresh Claude Code session; confirm a rules-specific question (e.g. "what's the restore-pivot trick?") is answered without grepping
+- Confirm the sync writes `<project>/.claude/rules/ulisten/agentic-jj/jj-workflow.local.md` and bootstraps `*.local.md` in `.gitignore`
+- Confirm it no-ops cleanly when `$CLAUDE_PROJECT_DIR` isn't set
+- Target jj 0.25+ (bookmark vs branch rename happened ~0.22; tested with 0.40)

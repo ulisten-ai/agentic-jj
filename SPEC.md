@@ -3,6 +3,10 @@
 A Claude Code plugin that teaches Claude how to use jujutsu (jj) effectively, with
 automation hooks for safety and workflow enforcement.
 
+**Status:** v0 shipped — covers the **rules + sync hook** portion only. Skills,
+safety hooks, and `userConfig` toggles described later in this doc are forward-looking
+design, not yet built (tracked as "Pending Work" in `CLAUDE.md`).
+
 ## Goals
 
 1. **Cover the hard stuff.** Existing jj skills cover basics well but fall short on complex
@@ -12,9 +16,10 @@ automation hooks for safety and workflow enforcement.
 2. **Prevent common agent mistakes.** Hooks that intercept git commands in jj repos, block
    interactive commands, and auto-snapshot work to prevent data loss.
 
-3. **Opinionated workflow.** This plugin prescribes a specific workflow (describe-first,
-   snapshot-often, squash-when-verified) rather than trying to accommodate all possible
-   jj workflows. Configuration is available for specific toggles, not wholesale workflow changes.
+3. **Opinionated workflow.** This plugin prescribes a specific workflow (snapshot-often
+   with clear descriptions, squash-when-verified) rather than trying to accommodate all
+   possible jj workflows. Configuration is available for specific toggles, not wholesale
+   workflow changes.
 
 ## Workflow Philosophy
 
@@ -35,31 +40,33 @@ The plugin enforces this workflow:
 
 ## Plugin Structure
 
+Files marked `(v0)` are shipped; `(planned)` are still to be built.
+
 ```
 agentic-jj/
 ├── .claude-plugin/
-│   └── plugin.json
+│   ├── plugin.json              # (v0) plugin manifest
+│   └── marketplace.json         # (v0) marketplace manifest (single-plugin)
 ├── rules/
-│   └── jj-workflow.md           # Synced to <project>/.claude/rules/ on SessionStart
+│   └── jj-workflow.md           # (v0) synced to <project>/.claude/rules/ on SessionStart
 ├── skills/
 │   ├── jj-split/
-│   │   └── SKILL.md             # Non-interactive splitting recipes
+│   │   └── SKILL.md             # (planned) non-interactive splitting recipes
 │   ├── jj-rewrite-history/
-│   │   └── SKILL.md             # Partial squash, rebase, insert mid-chain
+│   │   └── SKILL.md             # (planned) partial squash, rebase, insert mid-chain
 │   └── jj-recovery/
-│       └── SKILL.md             # Op log, undo, restore, obslog
+│       └── SKILL.md             # (planned) op log, undo, restore, obslog
 ├── hooks/
-│   └── hooks.json
+│   └── hooks.json               # (v0) currently wires SessionStart only
 ├── scripts/
-│   ├── sync-rules.sh            # SessionStart: sync rules to <project>/.claude/rules/
-│   ├── auto-snapshot.sh         # Stop: describe + new if @ has undescribed changes
-│   ├── block-git.sh             # PreToolUse: block git commands in jj repos
-│   ├── check-interactive.sh     # PreToolUse: block interactive jj commands
-│   └── inject-jj-state.sh       # SessionStart: output jj status/log for context
-├── SPEC.md
-├── README.md
-├── LICENSE                      # MIT
-└── CHANGELOG.md
+│   ├── sync-rules.sh            # (v0) SessionStart: sync rules + bootstrap .gitignore
+│   ├── auto-snapshot.sh         # (planned) Stop: describe + new if @ has undescribed changes
+│   ├── block-git.sh             # (planned) PreToolUse: block git commands in jj repos
+│   ├── check-interactive.sh     # (planned) PreToolUse: block editor-opening jj commands
+│   └── inject-jj-state.sh       # (planned) SessionStart: output jj status/log for context
+├── README.md                    # (v0)
+├── LICENSE                      # (v0) MIT
+└── SPEC.md                      # (v0) this file
 ```
 
 ## Rules vs Skills
@@ -71,7 +78,7 @@ This plugin uses **both** mechanisms for different purposes:
   SessionStart hook
 - Auto-loaded into Claude's primary context — Claude sees them every conversation
 - Contains: core mental model, non-interactive command rules, viewing state, the
-  describe-first workflow, revsets, bookmarks, conflict handling
+  describe-and-snapshot workflow, revsets, bookmarks, conflict handling
 - Should be concise — this consumes context window in every conversation
 
 **Skills** (`skills/*/SKILL.md`) — on-demand complex recipes:
@@ -93,11 +100,31 @@ This plugin uses **both** mechanisms for different purposes:
 
 ## Rules Content (rules/jj-workflow.md)
 
-The rules file is always loaded into Claude's context. It should be concise — every line
-here costs context window in every conversation. Focus on the essentials: what Claude gets
-wrong most often and the core workflow.
+See `rules/jj-workflow.md` for the actual rules.
 
-### Section 1: Core Mental Model
+**Design principles:**
+
+- **Concise** — every line costs context window in every conversation.
+- **Focus on what Claude gets wrong**, not jj basics. Assume Claude has core jj
+  knowledge from training data; the rules cover the deltas and gotchas.
+- **Always-on** (no opt-out). The rules file IS the plugin's core value, so the
+  SessionStart sync is not gated by `userConfig`.
+
+**Topics, intended format, and current state:**
+
+| Topic | Intended format | Status in `rules/jj-workflow.md` |
+|---|---|---|
+| Core mental model | 5-bullet summary (see below) | Scattered in prose; no consolidated summary |
+| Non-interactive commands | Table of command → problem → alternative (see below) | Prose across multiple sections; no consolidated table |
+| Viewing state | List of `jj status` / `diff --git` / `show --git` / `log` / `log -r <revset>` with `--git`-for-diffs reminder | ✓ covered in **Core Rules** |
+| Workflow | Decision tree (see below) | Prose in **Commit Management**; no decision-tree formatting |
+| Revset quick reference | Operator reference table (see below) | **Gap** — not in rules |
+| Bookmarks and pushing | Command list (see below) | **Gap** — not in rules |
+| Conflict handling | Marker syntax + recovery commands (see below) | **Gap** — not in rules |
+
+### Format details
+
+#### Core mental model
 
 Brief but precise. Not a jj tutorial — assume Claude has basic jj knowledge from training
 data. Focus on what it gets wrong:
@@ -106,81 +133,62 @@ data. Focus on what it gets wrong:
 - Change IDs (stable across rebases) vs commit IDs (change on rewrite)
 - `@` = working copy, `@-` = parent, `@--` = grandparent
 - All changes are mutable until pushed
-- The working copy auto-commits on every jj command (snapshotting)
+- The working copy auto-snapshots on every jj command
 
-### Section 2: Non-Interactive Command Rules
+#### Non-interactive command table
 
-**Critical section.** Claude's #1 failure mode is running commands that open an editor or
-interactive UI. Comprehensive list:
+**Critical section.** Claude's #1 failure mode is running commands that open an editor
+or interactive UI. The table should cover at minimum:
 
 | Command | Problem | Non-interactive alternative |
 |---------|---------|---------------------------|
-| `jj describe` (no -m) | Opens editor | `jj describe -m "message"` |
-| `jj commit` (no -m) | Opens editor | `jj commit -m "message"` (or just describe + new) |
-| `jj split` | Interactive file/hunk picker | Use `/jj-split` skill for non-interactive recipes |
+| `jj describe` (no `-m`) | Opens editor | `jj describe -m "message"` (or `--stdin` for multi-line) |
+| `jj commit` (no `-m`) | Opens editor | `jj commit -m "message"` (or just describe + new) |
+| `jj split` | Interactive file/hunk picker | `jj split -m "msg" -- <files>` (file-level); see `jj-split` skill for hunk-level |
 | `jj resolve` | Opens merge tool | Edit conflict markers directly, then save |
-| `jj squash` (no -m, target has desc) | Opens editor to combine messages | `jj squash -m "message"` |
+| `jj squash` (no `-m`, target has description) | Opens editor to combine messages | `jj squash -m "message"` |
 
-### Section 3: Viewing State
-
-Always use `--git` flag for diffs:
-- `jj status` — what files changed in current change
-- `jj diff --git` — unified diff of current change vs parent
-- `jj show <change> --git` — diff of a specific change
-- `jj log` — commit graph (default template)
-- `jj log -r <revset>` — filtered commit graph
-
-### Section 4: The Workflow
-
-Step-by-step decision tree for common operations:
-
-**Starting new work:**
-```
-jj log -r @  →  has description?  →  yes: jj new -m "task description"
-                                  →  no:  jj describe -m "task description"
-```
-
-**Checkpointing (snapshot):**
-```
-jj describe -m "what this change does"
-jj new
-```
-
-**Finishing a task:**
-```
-jj describe -m "final description"
-jj new   # clean slate for next task
-```
-
-**Discarding a failed attempt:**
-```
-jj abandon @   # drops current change, moves @ to parent
-```
-
-**Squashing (after verified):**
-```
-jj squash --into <target> -m "message"   # squash @ into any target change
-jj squash -m "message"                    # squash @ into parent
-```
-
-### Section 5: Revset Quick Reference
+#### Workflow decision tree
 
 ```
-@              current change
-@-             parent of current
-@--            grandparent
-trunk()        the main branch tip
-trunk()..@     all changes between trunk and current
-<x>+           children of x
-<x>-           parent of x
-ancestors(<x>) all ancestors
-heads(<set>)   tip changes in a set
-empty()        changes with no diff
-description(regex)  changes matching description
-mine()         changes by current user
+Starting new work:
+  jj log -r @  →  has description?  →  yes: jj new -m "task description"
+                                    →  no:  jj describe -m "task description"
+
+Checkpointing (snapshot):
+  jj describe -m "what this change does"
+  jj new
+
+Finishing a task:
+  jj describe -m "final description"
+  jj new   # clean slate for next task
+
+Discarding a failed attempt:
+  jj abandon @   # drops current change, moves @ to parent
+
+Squashing (after verified):
+  jj squash --into <target> -m "message"   # squash @ into any target change
+  jj squash -m "message"                    # squash @ into parent
 ```
 
-### Section 6: Bookmarks and Pushing
+#### Revset quick reference
+
+```
+@                            current change
+@-                           parent of current
+@--                          grandparent
+trunk()                      the main branch tip
+trunk()..@                   all changes between trunk and current
+<x>+                         children of x
+<x>-                         parent of x
+ancestors(<x>)               all ancestors
+heads(<set>)                 tip changes in a set
+empty()                      changes with no diff
+description(substring:"X")   changes whose description contains "X"
+mine()                       changes by current user
+```
+
+#### Bookmarks and pushing
 
 ```bash
 jj bookmark create <name> -r @      # create (doesn't auto-advance like git branches)
@@ -190,7 +198,7 @@ jj git push                         # push all tracked bookmarks
 jj git fetch                        # fetch from remote
 ```
 
-### Section 7: Conflict Handling
+#### Conflict handling
 
 ```bash
 # After a rebase that creates conflicts:
@@ -251,8 +259,10 @@ jj edit <original-change-id>
 jj restore --from @- -- path/to/C       # restore C to pre-change state
 ```
 
-> Note: There is no non-interactive way to split individual hunks within a single file.
-> If you need hunk-level splitting, tell the user and let them run `jj split` interactively.
+> For hunk-level splits within a shared file, use the **restore-pivot trick**
+> (`jj edit C; jj restore --from <pre-state-hash>; jj new; jj restore --from <post-state-hash>`)
+> — see `rules/jj-workflow.md` for the recipe. Pre-state and post-state hashes come from
+> `jj op log`.
 
 ### Skill: jj-rewrite-history (skills/jj-rewrite-history/SKILL.md)
 
@@ -310,21 +320,24 @@ Content:
 
 #### Operation Log
 
-Every jj command is recorded in the operation log. Nothing is ever truly lost.
+Every jj command is recorded in the operation log (append-only). Nothing is ever truly lost.
 
 ```bash
 # View the operation log
 jj op log
 
-# Undo the last operation
-jj undo
+# Inspect what an op did (mandatory before reverting)
+jj op show <operation-id> --git --patch
 
-# Restore to a specific operation state
-jj op restore <operation-id>
-
-# See what changed in a specific operation
-jj op diff <operation-id>
+# Inverse a specific op (preferred — surgical, preserves later work)
+jj op revert <operation-id>
 ```
+
+**NEVER use `jj op restore`** — it appends a new op that resets state to the target,
+abandoning every operation made since (including snapshots from concurrent workspaces).
+Prefer `jj op revert <op>` over `jj undo` too: revert takes an explicit op id, forcing
+you to look at the log first; `jj undo` blindly reverts the latest op, which is risky
+when recent ops are intermingled snapshots from tool calls and editor saves.
 
 #### Obslog (Change History)
 
@@ -342,15 +355,15 @@ jj obslog -r <change> -p --git
 
 **Accidentally abandoned a change:**
 ```bash
-jj undo                              # if it was the last operation
-# or
-jj op log                            # find the operation before the abandon
-jj op restore <operation-id>
+jj op log                            # find the abandon op
+jj op show <abandon-op> --git        # confirm it's the right one
+jj op revert <abandon-op>            # inverse just that op
 ```
 
 **Accidentally squashed the wrong thing:**
 ```bash
-jj undo                              # reverses the squash
+jj op log                            # find the squash op
+jj op revert <squash-op>             # inverse it
 ```
 
 **Want to see what @ looked like before a rebase:**
@@ -398,20 +411,12 @@ jj obslog -r <change>               # shows all historical versions
 }
 ```
 
-### 1. SessionStart: Sync Rules File (sync-rules.sh)
+### 1. SessionStart: Sync Rules File (sync-rules.sh) ✓ implemented
 
-**Purpose:** Keep the rules file at
-`$CLAUDE_PROJECT_DIR/.claude/rules/ulisten/agentic-jj/jj-workflow.local.md` up-to-date
-with the plugin's version, and make sure the destination is gitignored so it doesn't
-pollute commits.
-
-Script logic:
-1. Exit silently if `$CLAUDE_PROJECT_DIR` isn't set
-2. `mkdir -p $CLAUDE_PROJECT_DIR/.claude/rules/ulisten/agentic-jj`
-3. Compare `${CLAUDE_PLUGIN_ROOT}/rules/jj-workflow.md` with the destination
-4. If different (or missing), copy it
-5. If `$CLAUDE_PROJECT_DIR/.gitignore` doesn't already contain `*.local.md`, append it
-   (creates the file if it doesn't exist)
+See `scripts/sync-rules.sh` for the actual logic (~25 lines, self-documenting).
+Syncs `${CLAUDE_PLUGIN_ROOT}/rules/jj-workflow.md` →
+`$CLAUDE_PROJECT_DIR/.claude/rules/ulisten/agentic-jj/jj-workflow.local.md` and
+bootstraps `*.local.md` into the project's `.gitignore` if missing. Idempotent.
 
 Not configurable — always runs. The rules file IS the plugin's core value.
 
@@ -512,7 +517,7 @@ early (code 0, no-op) if the feature is disabled.
 ## Testing Plan
 
 1. **Rules:** Verify the rules file is loaded in every session and Claude follows the
-   describe-first workflow, uses `--git` for diffs, and avoids interactive commands.
+   describe-and-snapshot workflow, uses `--git` for diffs, and avoids interactive commands.
 2. **Skill auto-invocation:** Ask Claude to split a change, rebase, or recover from a
    mistake — verify it auto-invokes the correct skill and follows the recipe.
 3. **Hook testing:** Verify each hook fires correctly:
@@ -520,12 +525,7 @@ early (code 0, no-op) if the feature is disabled.
    - PreToolUse(git): ask Claude to `git status`, verify it's blocked with helpful message
    - PreToolUse(jj interactive): ask Claude to split, verify block + alternative suggestion
    - SessionStart: start session in jj repo, verify state is injected
-3. **Configuration:** Toggle each config option off, verify the corresponding hook becomes a no-op.
-4. **Non-jj repos:** Verify all hooks gracefully no-op when not in a jj repo.
-5. **jj version compatibility:** Test against jj 0.25+ (bookmark vs branch rename happened ~0.22).
+4. **Configuration:** Toggle each config option off, verify the corresponding hook becomes a no-op.
+5. **Non-jj repos:** Verify all hooks gracefully no-op when not in a jj repo.
+6. **jj version compatibility:** Test against jj 0.25+ (bookmark vs branch rename happened ~0.22; tested with 0.40).
 
-## Distribution
-
-- GitHub: `github.com/<owner>/agentic-jj`
-- Install: `claude plugin install agentic-jj@github:<owner>/agentic-jj`
-- License: MIT
