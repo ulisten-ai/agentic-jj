@@ -34,6 +34,26 @@ All scripts must:
 3. PreToolUse scripts receive event JSON on stdin and must output `{"decision": "block"|"approve", "reason": "..."}` as JSON
 4. Use `${CLAUDE_PLUGIN_ROOT}` for plugin-relative paths, `${CLAUDE_PLUGIN_DATA}` for persistent data
 
+## Implementation Tasks
+
+### Ordered
+
+Hooks first — enforce what we can mechanically, then add rules for what hooks can't cover.
+
+1. **Plugin manifest** — `plugin.json` with metadata and `userConfig` schema. After this the plugin is installable (though it does nothing yet).
+2. **Block git commands in jj repos** — `scripts/block-git.sh` and its entry in `hooks/hooks.json`. First working hook.
+3. **Block interactive jj commands** — `scripts/check-interactive.sh` and its hook entry. After this, Claude is prevented from running editor-opening jj commands (split, describe without -m, etc.).
+4. **Inject jj state on session start** — `scripts/inject-jj-state.sh` and its hook entry. Gives Claude repo context (status, log, whether `@` needs `jj new`) at conversation start.
+5. **Auto-snapshot on stop** — `scripts/auto-snapshot.sh` and its hook entry. Describes undescribed working copy as WIP when Claude stops, preventing silent work loss.
+6. **Always-on rules + sync** — `rules/jj-workflow.md`, `scripts/sync-rules.sh`, and its hook entry. Guidance for everything hooks can't enforce: workflow philosophy, revset reference, conflict handling, bookmark patterns. Written last so we know exactly what the hooks already cover and don't duplicate.
+
+### Unordered (each independently useful after the ordered tasks)
+
+- **Skill: jj-split** — `skills/jj-split/SKILL.md`. Non-interactive splitting recipes (by file, extract-out approach).
+- **Skill: jj-rewrite-history** — `skills/jj-rewrite-history/SKILL.md`. Partial squash, rebase, insert mid-chain.
+- **Skill: jj-recovery** — `skills/jj-recovery/SKILL.md`. Op log, undo, restore, obslog recipes.
+- **README + LICENSE + CHANGELOG** — Docs for distribution.
+
 ## Testing
 
 No automated test framework. Testing is manual per `SPEC.md § Testing Plan`:
