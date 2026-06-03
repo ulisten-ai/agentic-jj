@@ -93,6 +93,15 @@ Each independently useful — pick any:
   git and the flat rule blocks something useful, or does the flat rule prevent
   misclassification errors that an allowlist would invite? If the allowlist
   wins, adopt it.
+- **Evaluate `jj resolve --tool :ours/:theirs` coverage in rules.** johnstegeman's
+  skill (Apache-2.0, jj wiki recommended) flags these as agent-safe non-interactive
+  conflict resolution forms — useful when one side is known-correct and manual
+  marker editing would be slower. Our rules mention editing conflict markers
+  directly but don't surface these flags. Test: when Claude hits a conflict in
+  autonomous mode, does it reach for `--tool :ours`/`:theirs` unprompted when
+  appropriate, or default to manual marker editing in cases where a clean side
+  pick would be faster? If unprompted use is rare and the use case is real,
+  add 3-4 lines to rules.
 
 1. Check if we're in a jj repo (`jj root`) — exit silently if not
 2. Read config env var (`CLAUDE_PLUGIN_OPTION_<NAME>`) — exit silently if disabled
