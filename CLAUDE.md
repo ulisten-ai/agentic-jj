@@ -102,6 +102,19 @@ Each independently useful — pick any:
   appropriate, or default to manual marker editing in cases where a clean side
   pick would be faster? If unprompted use is rare and the use case is real,
   add 3-4 lines to rules.
+- **Explore using empty described commits as a planning mechanism for Claude.**
+  Pre-create a chain of empty `jj describe`-d commits as a plan (each commit's
+  description is a step), then fill them in as the implementation progresses.
+  Turns the commit chain
+  itself into a structured task list, which jj makes cheap (vs git's commit
+  semantics). Hypothesized benefits: (1) better planning quality up front;
+  (2) clearer plan communication to the user — the commit chain surfaces the
+  intended steps directly, without needing a separate plan document;
+  (3) better follow-through on long task lists — Claude less likely to drop
+  off midway since each completed step has an obvious next. Test on a few
+  multi-step tasks; if results are positive, document as a pattern in
+  `rules/jj-workflow.md` (or possibly as a slash-command for explicit
+  invocation).
 
 1. Check if we're in a jj repo (`jj root`) — exit silently if not
 2. Read config env var (`CLAUDE_PLUGIN_OPTION_<NAME>`) — exit silently if disabled
