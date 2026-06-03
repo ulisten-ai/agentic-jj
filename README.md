@@ -4,6 +4,36 @@ Jujutsu (jj) workflow rules for AI coding agents. Currently ships as a Claude Co
 plugin; the rules themselves are tool-agnostic and future versions will package
 them for other agent harnesses (OpenAI Codex, etc.).
 
+## What it addresses
+
+Most jj plugins for AI agents are on-demand skills, or read like jj
+documentation adapted for an agent — restating what models already know
+from training. This one loads as always-on rules into Claude's context,
+and addresses two specific things Claude needs help with:
+
+**1. Resistance to the failure modes that show up when an LLM drives jj
+autonomously** — editor prompts that hang the session, multi-line `-m` quoting
+headaches, `--from`/`--into` squash surprises, `jj op restore` clobbering work
+from concurrent jj workspaces (e.g. parallel Claude Code sessions in the same
+repo), revset-syntax pitfalls, and so on.
+
+**2. A workflow shape to follow.** Claude needs one to use jj effectively —
+without explicit guidance, jj's flexibility (multiple ways to checkpoint,
+clean up, recover) becomes a source of inconsistency. The shape this plugin
+teaches:
+
+- **Small, focused commits** — default to separate, not combine.
+- **Snapshot-often, squash-later** — many intermediate commits while working;
+  consolidate when verified.
+- **Aggressive history rewriting** — history is malleable until push.
+- **Describe early** — set a description as soon as the change has a clear
+  concept, not at the end.
+
+If you have a different working style in mind, adapt the relevant rules into
+your own setup instead of installing wholesale.
+
+PR-review workflow is out of scope — supplement separately if needed.
+
 ## Install
 
 ```
