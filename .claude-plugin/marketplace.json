@@ -1,0 +1,16 @@
+{
+  "name": "agentic-jj",
+  "owner": {
+    "name": "uListen"
+  },
+  "metadata": {
+    "description": "Jujutsu (jj) workflow rules for AI coding agents"
+  },
+  "plugins": [
+    {
+      "name": "agentic-jj",
+      "source": "./",
+      "description": "Jujutsu (jj) workflow rules for AI coding agents"
+    }
+  ]
+}
