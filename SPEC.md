@@ -479,6 +479,42 @@ Script logic:
 
 **Configuration:** `block_interactive` (default: `true`)
 
+### 6. SessionStart: Nudge conflict-marker-style config (planned)
+
+**Purpose:** Ensure `ui.conflict-marker-style = "git"` is set in the user's jj config
+so Claude reads familiar 2-way git markers instead of jj's default 3-way format.
+
+Currently the README documents this as a manual one-time command. This hook would
+remove the manual step.
+
+Options (in order of preference):
+
+1. **Detect + nudge (recommended, conservative):** SessionStart hook checks
+   `jj config list --user ui.conflict-marker-style`. If unset, emit a one-time
+   note suggesting `jj config set --user ui.conflict-marker-style git` and how
+   to opt out. Don't write the user's config without explicit consent.
+2. **Auto-set with opt-out:** SessionStart hook runs `jj config set --user
+   ui.conflict-marker-style git` unless `CLAUDE_PLUGIN_OPTION_set_conflict_marker_style`
+   is `false`. Faster path to working state but modifies user config without
+   per-install consent — only acceptable if the userConfig prompt at install time
+   surfaces the intent and the prompt is actually shown (Claude Code's userConfig
+   surfacing has been inconsistent in past versions — verify before relying on it).
+3. **Repo-local set:** Write to `.jj/repo/config.toml` instead of user config.
+   Scoped to one repo, but the file isn't tracked by jj so it's per-clone — every
+   fresh clone of the same repo needs the setting reapplied. Not recommended.
+
+Open questions for implementation:
+- How does `jj config set --user` behave under a non-interactive Claude session?
+  (Likely fine; it just writes a TOML key.)
+- Should the nudge also recommend `ui.diff-instructions = false` to skip the
+  3-way diff explainer that jj prints on `jj resolve`?
+- Should the nudge no-op if the user has *explicitly* set the value to something
+  other than `"git"` (i.e. they want jj's native format) vs. only nudging when
+  unset? Detect-explicit-vs-unset isn't trivial via `jj config list`.
+
+**Configuration:** `set_conflict_marker_style` (default behavior depends on
+option chosen above)
+
 ## Plugin Configuration (userConfig)
 
 ```json
@@ -498,6 +534,9 @@ Script logic:
     },
     "diff_flag": {
       "description": "Flag for diff format: --git for unified, --stat for summary (default: --git)"
+    },
+    "set_conflict_marker_style": {
+      "description": "Behavior for ui.conflict-marker-style nudge: 'nudge' (default — print a one-time suggestion if unset), 'auto' (set to 'git' on first SessionStart if unset), 'off' (do nothing)"
     }
   }
 }

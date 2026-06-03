@@ -69,6 +69,19 @@ Each independently useful — pick any:
   a stale bookmark and not notice? If it handles this fine, no rule needed; if
   it forgets, add 3-4 lines under a new "Bookmarks and pushing" section in
   `rules/jj-workflow.md`.
+- **Evaluate jj's 3-way conflict format (with guidance) vs git's 2-way format
+  for LLM resolution quality.** SPEC §6 plans a hook to nudge users toward
+  `ui.conflict-marker-style = "git"` on the assumption that LLM familiarity
+  with git markers outweighs the information density of jj's 3-way diff format
+  (`%%%%%%%` base + `+++++++` other-side). That assumption is untested. The
+  3-way format is strictly information-richer (it shows the base, so the LLM
+  doesn't have to infer it), and with ~10 lines of explanatory rules a modern
+  model may resolve more accurately in the jj format than in the git format.
+  Before committing the README recommendation as universal advice (and before
+  building the auto-set hook), run a head-to-head: a handful of real conflicts,
+  resolved by Claude under each format with matched guidance, scored on
+  correctness. If jj-format-with-guidance wins or ties, flip the README
+  recommendation (or qualify it as "for setups without our jj-format rules").
 
 ## Hook Implementation Conventions (for the planned hooks above)
 

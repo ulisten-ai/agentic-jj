@@ -16,6 +16,22 @@ The rules take effect in **new Claude Code sessions** after install — the
 command from, so restart Claude Code (or open a fresh session) to see the rules
 load.
 
+## Recommended one-time jj config
+
+Run once after install:
+
+```
+jj config set --user ui.conflict-marker-style git
+```
+
+This changes the conflict markers jj writes into your working copy from its
+default 3-way `<<<<<<<` / `%%%%%%%` / `+++++++` / `>>>>>>>` format (which
+encodes the base + each side's diff) to git's familiar 2-way
+`<<<<<<<` / `=======` / `>>>>>>>` format. LLMs are heavily trained on the
+git format and read it more reliably; jj's 3-way format is information-richer
+but unfamiliar to most models. The setting is local to your working copy —
+it doesn't affect what's stored in the repo or what collaborators see.
+
 ## How it works
 
 On every `SessionStart`, a hook script syncs the rules file to
