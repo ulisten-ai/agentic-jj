@@ -82,8 +82,17 @@ Each independently useful — pick any:
   resolved by Claude under each format with matched guidance, scored on
   correctness. If jj-format-with-guidance wins or ties, flip the README
   recommendation (or qualify it as "for setups without our jj-format rules").
-
-## Hook Implementation Conventions (for the planned hooks above)
+- **Evaluate read-only git allowlist vs flat "never git" rule.** johnstegeman's
+  skill (Apache-2.0, jj wiki recommended) distinguishes forbidden git mutations
+  (commit/add/stash/reset/checkout/rebase/merge/cherry-pick/push/pull — all
+  corrupt jj state) from allowed read-only git (log/show/diff/blame/grep/status
+  — safe in colocated repos). Our rule is a flat "never git." Their distinction
+  is more practical (read-only git is sometimes convenient — e.g. `git blame`
+  output format is what models expect) but adds complexity and risks Claude
+  misclassifying a command. Test: does Claude hit cases where it wants read-only
+  git and the flat rule blocks something useful, or does the flat rule prevent
+  misclassification errors that an allowlist would invite? If the allowlist
+  wins, adopt it.
 
 1. Check if we're in a jj repo (`jj root`) — exit silently if not
 2. Read config env var (`CLAUDE_PLUGIN_OPTION_<NAME>`) — exit silently if disabled
