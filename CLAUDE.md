@@ -61,6 +61,14 @@ Each independently useful — pick any:
 - **Hook: inject-jj-state** — `SessionStart` extension to also output `jj status` + `jj log -r @`
 - **`userConfig`** — toggles for each hook (`auto_snapshot`, `block_git`, etc.)
 - **CHANGELOG**
+- **Evaluate Claude's handling of bookmark advancement before adding any rule.**
+  jj bookmarks don't auto-advance with `jj commit`/`jj new`, so the canonical
+  push pattern is `jj bookmark move main -r @ && jj git push` (or `jj bookmark
+  advance main`). Before documenting this, test: does current Claude already
+  know to move the bookmark before pushing, or does it run `jj git push` against
+  a stale bookmark and not notice? If it handles this fine, no rule needed; if
+  it forgets, add 3-4 lines under a new "Bookmarks and pushing" section in
+  `rules/jj-workflow.md`.
 
 ## Hook Implementation Conventions (for the planned hooks above)
 
