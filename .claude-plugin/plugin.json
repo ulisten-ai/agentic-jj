@@ -1,7 +1,7 @@
 {
   "name": "agentic-jj",
   "description": "Jujutsu (jj) workflow rules for AI coding agents: describe-first workflow, non-interactive commands, revsets, and history rewriting",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "uListen AI"
   },
