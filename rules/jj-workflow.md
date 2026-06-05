@@ -32,6 +32,16 @@ use jj — never git. The rules below cover the patterns Claude gets wrong most 
     applies it into B. If B already *reverses* A's changes, the squash will re-add them — the two
     diffs don't cancel out. When a later commit supersedes an earlier one (adds then removes the same
     thing), just `jj abandon` the earlier commit instead of squashing.
+  - **Two described commits → editor unless told otherwise.** When both source and destination
+    already have descriptions, `jj squash --from X --into Y` opens an editor with a pre-filled
+    merge of both — if `JJ_EDITOR` is unset or points at a real editor it hangs the session, and
+    if it's set to `false` (a common autonomous-mode guardrail) the squash fails outright. Stay
+    non-interactive by picking one side explicitly: `--use-destination-message` keeps Y's
+    description, `--use-source-message` keeps X's. If you want a custom merged message, run
+    `jj describe <change> --stdin < $TMPDIR/jj-msg.tmp` *after* the squash. Don't reach for
+    `JJ_EDITOR=true` here — it would silently accept jj's auto-concatenation, which is rarely
+    the message you actually want. (Squashing the working copy into a described parent doesn't
+    hit this — `@` is undescribed so there's nothing to merge.)
 - **Editing descriptions:** Before running `jj describe -m` on an existing commit, read the current
   description first (`jj show -s -r <rev>` — shows the full description with a file summary,
   unlike `jj log` which truncates) so you don't accidentally drop details from a previous
