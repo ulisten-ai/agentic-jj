@@ -79,6 +79,20 @@ use jj — never git. The rules below cover the patterns Claude gets wrong most 
   the existing commit. Leave it as-is (as a fallback) and use `jj new <parent>` to start a new
   commit from the appropriate ancestor (often `@-`, but pick the right base). This way both
   approaches are preserved and either can be abandoned later.
+- **`jj rebase` — `-s` is almost always what you want, not `-r`.** The flags select *which*
+  revisions move, not where they go (that's `-d`/`-A`/`-B`):
+  - `-s REV -d DEST` moves REV *and all its descendants* as a chain onto DEST. This matches
+    the git-rebase mental model — "move this commit and everything on top of it onto the new
+    base" — and is the right default when you want a sub-chain relocated.
+  - `-r REV -d DEST` moves ONLY that one revision. jj fills the hole by re-parenting REV's
+    descendants onto REV's *original* parent, so they stay in the old chain location while REV
+    lands alone at DEST. If those descendants depended on REV's changes, they now conflict or
+    silently lose that dependency. Use only when deliberately hoisting a single commit out of
+    its chain.
+  - `-b REV -d DEST` moves the whole "branch" containing REV (revset `(DEST..REV)::`),
+    including siblings of REV's chain. Useful when you want everything between a base and a
+    tip rebased together.
+  Reach for `-s` unless you specifically want one of the other behaviors.
 - **Side commits while a change is WIP:** When you're mid-way through a WIP change in `@` and want
   to land an independent smaller change (a doc fix, a typo, an unrelated cleanup) as its own commit,
   don't mix it into the WIP. Insert it as a *parent*: `jj new -B @` (`--insert-before`) creates a

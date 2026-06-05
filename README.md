@@ -76,12 +76,13 @@ appends `*.local.md` once. Idempotent on every run.
 
 ## What's covered
 
-The rules file (~265 lines) covers:
+The rules file (~285 lines) covers:
 
 - **Mental model** — the working copy IS a change; change ID vs commit hash; the op log
 - **Non-interactive commands** — alternatives to forms that open editors and hang the session
 - **Snapshot workflow** — when to `jj new`, when to `jj describe`, how often to checkpoint
 - **Squash semantics** — `--from`/`--into` directionality, when diffs don't cancel out
+- **Rebase flag semantics** — `-s` vs `-r` vs `-b`, and what `-r` actually does to descendants
 - **Splitting changes** — file-based via `jj split -- <files>`, restore-pivot for hunks
 - **Revsets** — correct `description(substring:"...")` syntax (bare strings are glob, not substring); common patterns
 - **Op log & recovery** — `jj op revert` over `jj op restore`; concurrent-workspace caution
