@@ -48,6 +48,20 @@ All scripts must:
 3. PreToolUse scripts receive event JSON on stdin and must output `{"decision": "block"|"approve", "reason": "..."}` as JSON
 4. Use `${CLAUDE_PLUGIN_ROOT}` for plugin-relative paths, `${CLAUDE_PLUGIN_DATA}` for persistent data
 
+## Releasing
+
+**Bump `version` in `.claude-plugin/plugin.json` for every shipped rule/script change.**
+Claude Code's `/plugin update` resolves the installed plugin's version in priority order:
+`plugin.json` version → marketplace entry version → git commit SHA → `unknown`. When `version`
+is set, `/plugin update` only reports "update available" when that string changes — pushing
+commits to `main` without bumping is invisible to existing installs (new sessions still get
+the latest via the SessionStart sync, but `/plugin update` users get nothing).
+
+Use semver: patch bump (0.1.0 → 0.1.1) for additive rule entries / wording fixes, minor for
+new hooks/skills, major for breaking changes (e.g. renaming a `userConfig` key). Git tags are
+**not** consulted by the plugin manager — they're optional repo hygiene, not part of the
+version-resolution path.
+
 ## Pending Work
 
 Each independently useful — pick any:
